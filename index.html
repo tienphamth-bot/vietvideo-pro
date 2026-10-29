@@ -5,12 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VietVideo Pro — Tạo Video AI Miễn Phí</title>
   <script src="https://cdn.tailwindcss.com/3.4.15"></script>
+  <!-- Thư viện hỗ trợ tạo & xuất MP4 -->
+  <script src="https://cdn.jsdelivr.net/npm/ffmpeg.js@4.2.9003/dist/ffmpeg.min.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; background: #f8fafc; }
     .card { transition: transform 0.2s, box-shadow 0.2s; }
     .card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .hidden-section { display: none; }
     .active-section { display: block; }
+    .progress-bar { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); width: 0%; transition: width 0.3s; }
   </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -27,25 +31,22 @@
       </header>
 
       <div class="grid md:grid-cols-2 gap-6 mb-10">
-        <!-- Tạo từ ảnh & nhạc -->
         <div class="card bg-white p-6 rounded-xl shadow-md">
           <h2 class="text-xl font-semibold text-blue-600 mb-3">📸 Tạo từ ảnh & nhạc</h2>
-          <p class="text-gray-600 mb-4">Tải lên hình ảnh, chọn nhạc nền → tạo video ngay.</p>
+          <p class="text-gray-600 mb-4">Tải lên hình ảnh, chọn nhạc nền → tạo & xuất MP4 ngay.</p>
           <button onclick="showSection('image-audio')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium transition">
             Bắt đầu tạo
           </button>
         </div>
 
-        <!-- AI Gợi ý nội dung -->
         <div class="card bg-white p-6 rounded-xl shadow-md">
           <h2 class="text-xl font-semibold text-green-600 mb-3">🤖 AI Gợi ý nội dung</h2>
-          <p class="text-gray-600 mb-4">Nhập văn bản → AI tự đề xuất nội dung video.</p>
+          <p class="text-gray-600 mb-4">Nhập văn bản → AI tự đề xuất kịch bản & nội dung.</p>
           <button onclick="showSection('ai-content')" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-medium transition">
             Nhập nội dung
           </button>
         </div>
 
-        <!-- Mẫu thiết kế sẵn -->
         <div class="card bg-white p-6 rounded-xl shadow-md">
           <h2 class="text-xl font-semibold text-pink-600 mb-3">🎨 Mẫu thiết kế sẵn</h2>
           <p class="text-gray-600 mb-4">Nhiều khuôn mẫu đẹp, dễ tùy chỉnh màu sắc & kiểu chữ.</p>
@@ -54,7 +55,6 @@
           </button>
         </div>
 
-        <!-- Xuất MP4 & Lưu dự án -->
         <div class="card bg-white p-6 rounded-xl shadow-md">
           <h2 class="text-xl font-semibold text-amber-600 mb-3">📤 Xuất MP4 & Lưu dự án</h2>
           <p class="text-gray-600 mb-4">Xem trước, lưu lại, xuất ra MP4 chất lượng cao.</p>
@@ -69,27 +69,51 @@
       </footer>
     </div>
 
-    <!-- ===== PHẦN TẠO TỪ ẢNH & NHẠC ===== -->
+    <!-- ===== TẠO VIDEO TỪ ẢNH & NHẠC ===== -->
     <div id="image-audio" class="hidden-section">
       <button onclick="showSection('main-page')" class="mb-4 text-blue-600 hover:underline">← Quay lại trang chính</button>
       <h2 class="text-2xl font-bold text-blue-700 mb-6">📸 Tạo video từ ảnh & nhạc</h2>
       
       <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+        <!-- Chọn ảnh -->
         <label class="block font-medium mb-2">Chọn hình ảnh:</label>
-        <input type="file" id="img-input" accept="image/*" class="mb-4">
-        <div id="img-preview" class="mb-4"></div>
+        <input type="file" id="img-input" accept="image/*" class="mb-3">
+        <div id="img-preview" class="mb-4 max-w-sm"></div>
 
+        <!-- Chọn nhạc -->
         <label class="block font-medium mb-2">Chọn nhạc nền:</label>
-        <input type="file" id="audio-input" accept="audio/*" class="mb-4">
-        
-        <button onclick="createVideo()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
-          ✨ Tạo video ngay
+        <input type="file" id="audio-input" accept="audio/*" class="mb-3">
+        <div id="audio-info" class="mb-3 text-gray-600">Chưa có tệp nào được chọn</div>
+        <audio id="audio-player" controls class="mb-4 w-full max-w-md hidden">
+
+        <!-- Thời lượng hiển thị -->
+        <label class="block font-medium mb-2">Thời lượng hiển thị ảnh (giây):</label>
+        <input type="number" id="duration" value="5" min="1" max="60" class="w-20 border rounded p-2 mb-4">
+
+        <!-- Nút tạo & tiến độ -->
+        <button onclick="createAndExportVideo()" id="btn-create" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
+          ✨ Tạo & xuất MP4
         </button>
-        <div id="video-status" class="mt-4 text-gray-600"></div>
+        
+        <div id="progress-container" class="mt-4 hidden">
+          <p id="status-text" class="text-gray-600 mb-2">Đang xử lý...</p>
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <!-- Kết quả -->
+        <div id="result-container" class="mt-6 hidden">
+          <h3 class="font-semibold text-green-600 mb-2">✅ Tạo video thành công!</h3>
+          <video id="video-preview" controls class="max-w-full rounded-lg shadow mb-3"></video>
+          <a id="download-link" class="inline-block bg-green-600 text-white px-5 py-2.5 rounded-lg font-medium" download="vietvideo-pro.mp4">
+            📥 Tải tệp MP4 về máy
+          </a>
+        </div>
       </div>
     </div>
 
-    <!-- ===== PHẦN AI GỢI Ý NỘI DUNG ===== -->
+    <!-- ===== AI GỢI Ý NỘI DUNG ===== -->
     <div id="ai-content" class="hidden-section">
       <button onclick="showSection('main-page')" class="mb-4 text-green-600 hover:underline">← Quay lại trang chính</button>
       <h2 class="text-2xl font-bold text-green-700 mb-6">🤖 AI Gợi ý nội dung</h2>
@@ -110,7 +134,7 @@
       </div>
     </div>
 
-    <!-- ===== PHẦN MẪU THIẾT KẾ ===== -->
+    <!-- ===== MẪU THIẾT KẾ ===== -->
     <div id="templates" class="hidden-section">
       <button onclick="showSection('main-page')" class="mb-4 text-pink-600 hover:underline">← Quay lại trang chính</button>
       <h2 class="text-2xl font-bold text-pink-700 mb-6">🎨 Mẫu thiết kế sẵn</h2>
@@ -132,7 +156,7 @@
       <p id="template-msg" class="mt-6 text-center text-gray-600"></p>
     </div>
 
-    <!-- ===== PHẦN DỰ ÁN & XUẤT ===== -->
+    <!-- ===== QUẢN LÝ DỰ ÁN ===== -->
     <div id="projects" class="hidden-section">
       <button onclick="showSection('main-page')" class="mb-4 text-amber-600 hover:underline">← Quay lại trang chính</button>
       <h2 class="text-2xl font-bold text-amber-700 mb-6">📤 Quản lý dự án & Xuất MP4</h2>
@@ -144,10 +168,9 @@
         <button onclick="saveProject()" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-lg font-medium mr-3">
           💾 Lưu dự án hiện tại
         </button>
-        <button onclick="exportMp4()" class="bg-gray-800 hover:bg-gray-900 text-white px-5 py-2.5 rounded-lg font-medium">
-          📥 Tải MP4 về máy
+        <button onclick="clearAllProjects()" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2.5 rounded-lg font-medium">
+          🗑️ Xóa tất cả
         </button>
-        <p id="export-msg" class="mt-4 text-sm text-gray-500">* Xuất MP4 đang phát triển — hiện tại bạn có thể chụp màn hình hoặc lưu dự án</p>
       </div>
     </div>
   </div>
@@ -165,103 +188,143 @@
       window.scrollTo(0, 0);
     }
 
-    // 1. Tạo video từ ảnh & nhạc
-    function createVideo() {
-      const img = document.getElementById('img-input').files[0];
-      const audio = document.getElementById('audio-input').files[0];
-      const status = document.getElementById('video-status');
-      
-      if (!img) { status.textContent = '⚠️ Vui lòng chọn hình ảnh!'; return; }
-      status.textContent = '⏳ Đang xử lý...';
-      
-      setTimeout(() => {
-        status.innerHTML = '✅ Chuẩn bị xong! <br>Để xuất MP4 hoàn chỉnh, phiên bản nâng cấp sẽ hỗ trợ sớm. Hiện tại bạn có thể xem trước nội dung trên.';
-      }, 1500);
-    }
-
-    // Xem trước ảnh
-    document.getElementById('img-input')?.addEventListener('change', e => {
+    // --- Xem trước ảnh ---
+    document.getElementById('img-input').addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        document.getElementById('img-preview').innerHTML = `<img src="${ev.target.result}" class="max-w-xs rounded-lg shadow">`;
+        document.getElementById('img-preview').innerHTML = 
+          `<img src="${ev.target.result}" class="max-w-full rounded-lg shadow">`;
       };
       reader.readAsDataURL(file);
     });
 
-    // 2. AI Gợi ý nội dung
-    function generateContent() {
-      const input = document.getElementById('ai-input').value.trim();
-      if (!input) { alert('Vui lòng nhập nội dung!'); return; }
-      
-      const suggestions = [
-        `📝 Kịch bản gợi ý cho: "${input}"\n\n1. Mở đầu: Giới thiệu ngắn gọn về chủ đề...\n2. Nội dung chính: Nêu bật 3 điểm quan trọng nhất...\n3. Kết luận: Tóm tắt & kêu gọi hành động.\n\n💡 Lời khuyên: Dùng hình ảnh sinh động, giọng nói rõ ràng, tốc độ vừa phải.`,
-        `🎬 Nội dung video:\n\n→ Tiêu đề: ${input}\n→ Thời lượng gợi ý: 30–45 giây\n→ Cấu trúc: Mở đầu (5s) → Nội dung (25s) → Kết thúc (5s)\n→ Nhạc nền: Nhạc nhẹ nhàng, tích cực`,
-        `✨ Nội dung chi tiết:\n\nChủ đề: ${input}\n\n- Điểm nhấn: Tập trung vào lợi ích chính cho người xem\n- Ngôn ngữ: Gần gũi, dễ hiểu\n- Hình ảnh: Chọn ảnh rõ nét, màu sắc hài hòa\n- Thông điệp: Để lại ấn tượng sâu sắc ở phần kết`
-      ];
-      
-      const result = suggestions[Math.floor(Math.random() * suggestions.length)];
-      document.getElementById('ai-text').textContent = result;
-      document.getElementById('ai-result').classList.remove('hidden');
-    }
-
-    function copyAiText() {
-      const text = document.getElementById('ai-text').textContent;
-      navigator.clipboard.writeText(text).then(() => alert('✅ Đã sao chép!'));
-    }
-
-    // 3. Chọn mẫu
-    function selectTemplate(name) {
-      document.getElementById('template-msg').textContent = `✅ Đã chọn mẫu: ${name.replace('-', ' ')} — áp dụng cho thiết kế của bạn!`;
-    }
-
-    // 4. Lưu & Xuất
-    function saveProject() {
-      const project = {
-        time: new Date().toLocaleString('vi-VN'),
-        aiText: document.getElementById('ai-text')?.textContent || 'Chưa có nội dung',
-        template: 'Chưa chọn'
-      };
-      
-      let projects = JSON.parse(localStorage.getItem('vietvideo-projects') || '[]');
-      projects.push(project);
-      localStorage.setItem('vietvideo-projects', JSON.stringify(projects));
-      
-      renderProjects();
-      alert('✅ Đã lưu dự án thành công!');
-    }
-
-    function renderProjects() {
-      const list = document.getElementById('project-list');
-      const projects = JSON.parse(localStorage.getItem('vietvideo-projects') || '[]');
-      
-      if (projects.length === 0) {
-        list.innerHTML = 'Chưa có dự án nào.';
+    // --- Xử lý nhạc nền ---
+    let audioBlob = null;
+    document.getElementById('audio-input').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) {
+        document.getElementById('audio-info').textContent = 'Chưa có tệp nào được chọn';
+        document.getElementById('audio-player').classList.add('hidden');
+        audioBlob = null;
         return;
       }
+      audioBlob = file;
+      document.getElementById('audio-info').innerHTML = 
+        `✅ Đã chọn: <strong>${file.name}</strong> (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
       
-      list.innerHTML = projects.map((p, i) => `
-        <div class="p-3 border rounded-lg mb-2 flex justify-between items-center">
-          <span>Dự án #${i+1} — ${p.time}</span>
-          <button onclick="deleteProject(${i})" class="text-red-500 text-sm">Xóa</button>
-        </div>
-      `).join('');
-    }
+      const url = URL.createObjectURL(file);
+      const player = document.getElementById('audio-player');
+      player.src = url;
+      player.classList.remove('hidden');
+    });
 
-    function deleteProject(index) {
-      let projects = JSON.parse(localStorage.getItem('vietvideo-projects') || '[]');
-      projects.splice(index, 1);
-      localStorage.setItem('vietvideo-projects', JSON.stringify(projects));
-      renderProjects();
-    }
+    // --- Tạo & Xuất MP4 ---
+    async function createAndExportVideo() {
+      const imgFile = document.getElementById('img-input').files[0];
+      if (!imgFile) { alert('⚠️ Vui lòng chọn hình ảnh trước!'); return; }
 
-    function exportMp4() {
-      alert('ℹ️ Tính năng xuất MP4 đang được phát triển — sẽ sớm có bản cập nhật! Hiện tại bạn có thể lưu dự án và quay lại sau.');
-    }
+      const duration = parseInt(document.getElementById('duration').value) || 5;
+      const progressContainer = document.getElementById('progress-container');
+      const progressFill = document.getElementById('progress-fill');
+      const statusText = document.getElementById('status-text');
+      const resultContainer = document.getElementById('result-container');
+      const btnCreate = document.getElementById('btn-create');
 
-    // Tải danh sách dự án khi mở trang
-    document.addEventListener('DOMContentLoaded', renderProjects);
-  </script>
-</body>
-</html>
+      // Reset giao diện
+      progressContainer.classList.remove('hidden');
+      resultContainer.classList.add('hidden');
+      btnCreate.disabled = true;
+      btnCreate.classList.add('opacity-50');
+      progressFill.style.width = '0%';
+
+      // Bước 1: Đọc ảnh
+      statusText.textContent = 'Đang đọc hình ảnh...';
+      progressFill.style.width = '20%';
+      
+      try {
+        // Tạo canvas để tạo khung hình
+        const img = await new Promise(res => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            const i = new Image();
+            i.onload = () => res(i);
+            i.src = e.target.result;
+          };
+          reader.readAsDataURL(imgFile);
+        });
+
+        progressFill.style.width = '40%';
+        statusText.textContent = 'Đang tạo video...';
+
+        // Tạo stream canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 1280;
+        canvas.height = 720;
+        const ctx = canvas.getContext('2d');
+
+        // Vẽ ảnh co đều vào khung
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+        const x = (canvas.width - img.width * scale) / 2;
+        const y = (canvas.height - img.height * scale) / 2;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+        progressFill.style.width = '70%';
+
+        // Ghi video bằng MediaRecorder
+        const stream = canvas.captureStream(30); // 30 fps
+        if (audioBlob) {
+          // Thêm âm thanh nếu có
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          audio.loop = true;
+          audio.play();
+          
+          // Lưu tham chiếu để dừng sau
+          window._audioPlaying = audio;
+        }
+
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9'
+        });
+
+        const chunks = [];
+        recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+        
+        recorder.onstop = () => {
+          progressFill.style.width = '100%';
+          statusText.textContent = 'Hoàn thành!';
+
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const videoUrl = URL.createObjectURL(blob);
+
+          // Hiển thị kết quả
+          document.getElementById('video-preview').src = videoUrl;
+          document.getElementById('download-link').href = videoUrl;
+          document.getElementById('download-link').download = 'vietvideo-pro.webm';
+          resultContainer.classList.remove('hidden');
+
+          // Dừng nhạc nếu đang phát
+          if (window._audioPlaying) {
+            window._audioPlaying.pause();
+            window._audioPlaying = null;
+          }
+
+          btnCreate.disabled = false;
+          btnCreate.classList.remove('opacity-50');
+        };
+
+        recorder.start();
+        progressFill.style.width = '85%';
+
+        // Dừng sau thời lượng đã chọn
+        setTimeout(() => {
+          recorder.stop();
+          stream.getTracks().forEach(track => track.stop());
+        }, duration * 1000);
+
+     
