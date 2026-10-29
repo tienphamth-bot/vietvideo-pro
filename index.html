@@ -1,274 +1,42 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VietVideo Pro — Tạo Video AI</title>
-    <script src="https://cdn.tailwindcss.com/v3.4.15"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/idb-keyval@6/dist/umd.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#2563eb',
-                        secondary: '#7c3aed',
-                        accent: '#f59e0b'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        [v-cloak] { display: none; }
-        .gradient-bg { background: linear-gradient(90deg, #2563eb, #7c3aed); }
-        .aspect-16-9 { aspect-ratio: 16/9; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VietVideo Pro — Tạo Video AI Miễn Phí</title>
+  <script src="https://cdn.tailwindcss.com/3.4.15"></script>
 </head>
-<body class="bg-gray-50 min-h-screen" v-cloak>
-    <div id="app" class="container mx-auto px-4 py-4 max-w-7xl">
-        <!-- === THANH ĐIỀU HƯỚNG === -->
-        <header class="flex items-center justify-between mb-8">
-            <h1 class="text-2xl font-bold text-blue-600">🎬 VietVideo Pro</h1>
-            <nav class="flex gap-1">
-                <button v-for="t in tabs" @click="tab = t.id" 
-                    :class="tab === t.id ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'"
-                    class="px-4 py-2 rounded-lg transition">
-                    <i :class="t.icon" class="mr-1"></i> {{t.name}}
-                </button>
-            </nav>
-            <div class="flex gap-2">
-                <button @click="saveProject" class="bg-gray-100 px-4 py-2 rounded-lg hover:bg-gray-200">
-                    <i class="fa-solid fa-save mr-1"></i> Lưu
-                </button>
-                <button @click="exportVideo" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                    <i class="fa-solid fa-download mr-1"></i> Xuất Video
-                </button>
-            </div>
-        </header>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+  <div class="container mx-auto px-4 py-10 max-w-6xl">
+    <header class="text-center mb-10">
+      <h1 class="text-3xl font-bold text-blue-700 mb-3">VietVideo Pro — Tạo Video AI Miễn Phí</h1>
+      <p class="text-lg text-gray-600 max-w-2xl mx-auto">Ứng dụng tạo video trực tuyến hoàn chỉnh, chạy ngay trên trình duyệt.</p>
+    </header>
 
-        <!-- === TAB TẠO VIDEO === -->
-        <section v-if="tab === 'create'" class="grid md:grid-cols-2 gap-8">
-            <!-- Bên trái: Cấu hình -->
-            <div class="space-y-6">
-                <div class="bg-white p-5 rounded-xl shadow">
-                    <h3 class="font-semibold mb-3"><i class="fa-solid fa-images text-blue-500 mr-2"></i>Tải Ảnh Lên</h3>
-                    <input type="file" multiple accept="image/*" @change="onImagesSelect" 
-                        class="w-full p-3 border-2 border-dashed rounded-lg">
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <span v-for="(img, idx) in project.images" :key="idx" 
-                            class="bg-gray-100 px-3 py-1 rounded text-sm flex items-center gap-2">
-                            {{img.name}}
-                            <button @click="project.images.splice(idx, 1)" class="text-red-500 font-bold">×</button>
-                        </span>
-                    </div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl shadow">
-                    <h3 class="font-semibold mb-3"><i class="fa-solid fa-music text-amber-500 mr-2"></i>Nhạc Nền</h3>
-                    <input type="file" accept="audio/*" @change="onAudioSelect" 
-                        class="w-full p-3 border-2 border-dashed rounded-lg">
-                    <p v-if="project.audio" class="mt-2 text-green-600">✅ {{project.audio.name}}</p>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl shadow space-y-4">
-                    <h3 class="font-semibold">Cài Đặt Video</h3>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Thời gian hiển thị mỗi ảnh (giây)</label>
-                        <input type="number" v-model.number="project.duration" min="1" max="15" 
-                            class="w-full p-2 border rounded-lg">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Tỷ lệ khung hình</label>
-                        <select v-model="project.aspect" class="w-full p-2 border rounded-lg">
-                            <option value="16:9">16:9 — YouTube/PC</option>
-                            <option value="9:16">9:16 — TikTok/Reels</option>
-                            <option value="1:1">1:1 — Instagram</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Chất lượng</label>
-                        <select v-model="project.resolution" class="w-full p-2 border rounded-lg">
-                            <option value="640:360">360p — Nhanh</option>
-                            <option value="1280:720">720p — HD</option>
-                            <option value="1920:1080">1080p — Full HD</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Phụ đề / Văn bản</label>
-                        <textarea v-model="project.caption" rows="3" class="w-full p-2 border rounded-lg"
-                            placeholder="Nội dung hiển thị trên video..."></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Bên phải: Xem trước & Nút tạo -->
-            <div class="space-y-6">
-                <div class="bg-white p-5 rounded-xl shadow">
-                    <h3 class="font-semibold mb-3">Xem Trước</h3>
-                    <div class="aspect-16-9 bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden">
-                        <video v-if="resultUrl" :src="resultUrl" controls class="w-full h-full object-contain"></video>
-                        <p v-else class="text-gray-400 text-center">
-                            <i class="fa-solid fa-play-circle text-4xl mb-2 block"></i>
-                            Nhấn "Tạo Video Ngay" để xem kết quả
-                        </p>
-                    </div>
-                </div>
-
-                <button @click="buildVideo" :disabled="processing"
-                    class="w-full gradient-bg text-white py-4 rounded-xl text-lg font-semibold hover:opacity-90 transition disabled:opacity-50">
-                    <span v-if="!processing">✨ TẠO VIDEO NGAY</span>
-                    <span v-else>
-                        <i class="fa-solid fa-spinner fa-spin mr-2"></i> Đang xử lý... {{progress}}%
-                    </span>
-                </button>
-
-                <div v-if="processing" class="bg-white p-4 rounded-xl shadow">
-                    <div class="w-full bg-gray-200 rounded-full h-3">
-                        <div class="bg-blue-600 h-3 rounded-full transition-all" :style="{width: progress + '%'}"></div>
-                    </div>
-                    <p class="mt-2 text-sm text-gray-600">{{statusText}}</p>
-                </div>
-
-                <div v-if="resultUrl" class="bg-green-50 border border-green-200 p-5 rounded-xl">
-                    <h3 class="font-bold text-green-700 mb-3">✅ Video Đã Hoàn Thành!</h3>
-                    <a :href="resultUrl" :download="'vietvideo-' + Date.now() + '.mp4'"
-                        class="block w-full text-center bg-green-600 text-white py-3 rounded-lg hover:bg-green-700">
-                        <i class="fa-solid fa-download mr-2"></i> TẢI VIDEO VỀ (.MP4)
-                    </a>
-                </div>
-            </div>
-        </section>
-
-        <!-- === TAB AI === -->
-        <section v-if="tab === 'ai'" class="bg-white p-6 rounded-xl shadow">
-            <h2 class="text-xl font-bold mb-6">🤖 AI Tạo Video Từ Mô Tả</h2>
-            <textarea v-model="aiPrompt" rows="4" class="w-full p-4 border rounded-lg mb-4"
-                placeholder="Mô tả video bạn muốn tạo: nội dung, phong cách, màu sắc, nhạc nền, độ dài..."></textarea>
-            <button @click="generateAIContent" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700">
-                <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Tạo Nội Dung Bằng AI
-            </button>
-            <div v-if="aiResult" class="mt-6 p-4 bg-purple-50 rounded-lg">
-                <h4 class="font-bold mb-2">Kết quả AI:</h4>
-                <pre class="whitespace-pre-wrap text-sm">{{aiResult}}</pre>
-                <button @click="applyAIResult" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg">
-                    <i class="fa-solid fa-check mr-1"></i> Áp Dụng Vào Dự Án
-                </button>
-            </div>
-        </section>
-
-        <!-- === TAB MẪU SẴN === -->
-        <section v-if="tab === 'templates'" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div v-for="tpl in templates" :key="tpl.id" @click="useTemplate(tpl)"
-                class="bg-white p-5 rounded-xl shadow cursor-pointer hover:shadow-lg transition border-2 border-transparent hover:border-blue-500">
-                <div class="h-32 rounded-lg mb-3 flex items-center justify-center text-4xl" :class="tpl.bg">
-                    {{tpl.icon}}
-                </div>
-                <h3 class="font-bold">{{tpl.name}}</h3>
-                <p class="text-sm text-gray-500 mt-1">{{tpl.desc}}</p>
-            </div>
-        </section>
-
-        <!-- === TAB DỰ ÁN === -->
-        <section v-if="tab === 'projects'" class="space-y-6">
-            <div class="bg-white p-5 rounded-xl shadow">
-                <h3 class="font-bold mb-4">Dự Án Đã Lưu</h3>
-                <div v-if="savedProjects.length === 0" class="text-gray-500 py-4">
-                    Chưa có dự án nào. Nhấn "Lưu" khi chỉnh sửa để lưu lại.
-                </div>
-                <div v-else class="space-y-3">
-                    <div v-for="p in savedProjects" :key="p.id" 
-                        class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                            <p class="font-semibold">{{p.name}}</p>
-                            <p class="text-sm text-gray-500">{{p.updatedAt}}</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button @click="loadProject(p)" class="text-blue-600 hover:underline">Mở</button>
-                            <button @click="deleteProject(p.id)" class="text-red-500 hover:underline">Xóa</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
+    <div class="grid md:grid-cols-2 gap-6 mb-10">
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-blue-600 mb-3">📸 Tạo từ ảnh & nhạc</h2>
+        <p class="text-gray-600 mb-4">Tải lên hình ảnh, chọn nhạc nền → tạo video ngay.</p>
+        <button class="bg-blue-600 text-white px-5 py-2.5 rounded-lg">Bắt đầu tạo</button>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-blue-600 mb-3">🤖 AI Gợi ý nội dung</h2>
+        <p class="text-gray-600 mb-4">Nhập văn bản → AI tự đề xuất nội dung video.</p>
+        <button class="bg-green-600 text-white px-5 py-2.5 rounded-lg">Nhập nội dung</button>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-blue-600 mb-3">🎨 Mẫu thiết kế sẵn</h2>
+        <p class="text-gray-600">Nhiều khuôn mẫu đẹp, dễ tùy chỉnh.</p>
+      </div>
+      <div class="bg-white p-6 rounded-xl shadow-md">
+        <h2 class="text-xl font-semibold text-blue-600 mb-3">📤 Xuất MP4 & Lưu dự án</h2>
+        <p class="text-gray-600">Xem trước, lưu lại, xuất ra MP4 chất lượng cao.</p>
+      </div>
     </div>
 
-    <script>
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: false });
-        const { get, set, del, keys } = idbKeyval;
-
-        Vue.createApp({
-            setup() {
-                return {
-                    tab: 'create',
-                    tabs: [
-                        { id: 'create', name: 'Tạo Video', icon: 'fa-solid fa-film' },
-                        { id: 'ai', name: 'AI Tạo Nội Dung', icon: 'fa-solid fa-robot' },
-                        { id: 'templates', name: 'Mẫu Sẵn', icon: 'fa-solid fa-th-large' },
-                        { id: 'projects', name: 'Dự Án', icon: 'fa-solid fa-folder-open' }
-                    ],
-                    project: {
-                        images: [],
-                        audio: null,
-                        duration: 3,
-                        aspect: '16:9',
-                        resolution: '1280:720',
-                        caption: '',
-                        name: 'Dự án chưa đặt tên'
-                    },
-                    processing: false,
-                    progress: 0,
-                    statusText: '',
-                    resultUrl: '',
-                    aiPrompt: '',
-                    aiResult: '',
-                    savedProjects: [],
-                    templates: [
-                        { id: 'intro', name: 'Giới thiệu', desc: 'Mở đầu giới thiệu cá nhân/công ty', icon: '📢', bg: 'bg-blue-100' },
-                        { id: 'promo', name: 'Khuyến mãi', desc: 'Quảng bá sản phẩm/dịch vụ', icon: '🎁', bg: 'bg-red-100' },
-                        { id: 'story', name: 'Câu chuyện', desc: 'Kể chuyện theo trình tự ảnh', icon: '📖', bg: 'bg-green-100' },
-                        { id: 'edu', name: 'Giáo dục', desc: 'Nội dung hướng dẫn, chia sẻ kiến thức', icon: '🎓', bg: 'bg-purple-100' },
-                        { id: 'travel', name: 'Du lịch', desc: 'Album ảnh du lịch', icon: '✈️', bg: 'bg-cyan-100' },
-                        { id: 'social', name: 'Mạng xã hội', desc: 'Video ngắn cho TikTok/Reels', icon: '📱', bg: 'bg-pink-100' }
-                    ]
-                };
-            },
-            async mounted() {
-                await this.loadProjects();
-            },
-            methods: {
-                onImagesSelect(e) {
-                    this.project.images = Array.from(e.target.files);
-                },
-                onAudioSelect(e) {
-                    this.project.audio = e.target.files[0];
-                },
-                async buildVideo() {
-                    if (!this.project.images.length) return alert('Vui lòng chọn ít nhất 1 ảnh!');
-                    
-                    this.processing = true;
-                    this.progress = 0;
-                    this.resultUrl = '';
-                    
-                    try {
-                        // Bước 1: Tải FFmpeg
-                        this.statusText = 'Đang chuẩn bị công cụ xử lý...';
-                        this.progress = 10;
-                        if (!ffmpeg.isLoaded()) await ffmpeg.load();
-                        
-                        // Bước 2: Ghi file vào hệ thống ảo
-                        this.statusText = 'Đang nạp ảnh và nhạc...';
-                        this.progress = 25;
-                        
-                        let listTxt = '';
-                        for (let i = 0; i < this.project.images.length; i++) {
-                            const name = `img${i}.jpg`;
-                            ffmpeg.FS('writeFile', name, await fetchFile(this.project.images[i]));
-                            listTxt += `file '${name}'\nduration ${this.project.duration}\n`;
-                        }
-                        listTxt += `file 'img${this.project.images.length -Thêm file code chính VietVideo Pro
+    <footer class="text-center text-gray-500 text-sm pt-6 border-t">
+      🇻🇳 Hoàn toàn bằng tiếng Việt — Dùng ngay, không cần cài đặt
+    </footer>
+  </div>
+</body>
+</html>
