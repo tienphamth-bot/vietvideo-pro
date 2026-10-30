@@ -73,7 +73,6 @@
             </button>
             <h2 class="text-2xl font-bold mb-6">🎬 Tạo Video Từ Ảnh & Nhạc</h2>
             <div class="grid md:grid-cols-2 gap-8">
-                <!-- Bên trái: Tải lên -->
                 <div class="space-y-5">
                     <div class="bg-white p-5 rounded-xl shadow">
                         <h3 class="font-semibold mb-3"><i class="fa-solid fa-images text-blue-500 mr-2"></i>Chọn Ảnh</h3>
@@ -109,7 +108,6 @@
                         </div>
                     </div>
                 </div>
-                <!-- Bên phải: Xem trước & Nút -->
                 <div class="space-y-5">
                     <div class="bg-white p-5 rounded-xl shadow">
                         <h3 class="font-semibold mb-3">Xem Trước</h3>
@@ -245,7 +243,6 @@
                             ffmpeg.FS('writeFile', `img${i}.jpg`, await fetchFile(this.images[i]));
                         }
 
-                        // Tạo danh sách nối ảnh
                         let listContent = '';
                         for (let i = 0; i < this.images.length; i++) {
                             listContent += `file 'img${i}.jpg'\nduration ${this.duration}\n`;
@@ -260,4 +257,5 @@
                         
                         await ffmpeg.run(
                             '-f', 'concat', '-safe', '0', '-i', 'list.txt',
-                            '-vf', `scale=${w
+                            '-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`,
+                            '-r', '24',
